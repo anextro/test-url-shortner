@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"sort"
 	"strings"
@@ -59,6 +60,27 @@ func runLoad(t *testing.T, qps int, dur time.Duration, mk func(i int) *http.Requ
 	return res
 }
 
+// timedHandler records how long the service spends on each redirect (GET),
+// which is what the spec's latency target measures ("inside the service").
+type timedHandler struct {
+	h   http.Handler
+	mu  sync.Mutex
+	lat []time.Duration
+}
+
+func (th *timedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		th.h.ServeHTTP(w, r)
+		return
+	}
+	t0 := time.Now()
+	th.h.ServeHTTP(w, r)
+	el := time.Since(t0)
+	th.mu.Lock()
+	th.lat = append(th.lat, el)
+	th.mu.Unlock()
+}
+
 func pct(l []time.Duration, p float64) time.Duration {
 	s := append([]time.Duration(nil), l...)
 	sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })
@@ -73,7 +95,10 @@ func TestLoad(t *testing.T) {
 	if testing.Short() {
 		t.Skip("load test skipped in -short mode")
 	}
-	_, ts := newTestServer(t)
+	srv, _ := newTestServer(t)
+	timed := &timedHandler{h: srv}
+	ts := httptest.NewServer(timed)
+	defer ts.Close()
 	dur := 10 * time.Second
 	if v := os.Getenv("LOAD_SECONDS"); v != "" {
 		d, err := time.ParseDuration(v + "s")
@@ -111,14 +136,15 @@ func TestLoad(t *testing.T) {
 	wg.Wait()
 
 	rp50, rp99 := pct(redir.lat, 0.50), pct(redir.lat, 0.99)
+	sp50, sp99 := pct(timed.lat, 0.50), pct(timed.lat, 0.99)
 	cp50, cp99 := pct(create.lat, 0.50), pct(create.lat, 0.99)
-	fmt.Printf("LOAD redirect: n=%d errors=%d p50=%v p99=%v (target p99 <= 10ms @ 1000 QPS)\n", len(redir.lat), redir.errs, rp50, rp99)
+	fmt.Printf("LOAD redirect (inside service): n=%d p50=%v p99=%v (target p99 <= 10ms @ 1000 QPS)\n", len(timed.lat), sp50, sp99)
+	fmt.Printf("LOAD redirect (seen by client): n=%d errors=%d p50=%v p99=%v (info only)\n", len(redir.lat), redir.errs, rp50, rp99)
 	fmt.Printf("LOAD create:   n=%d errors=%d p50=%v p99=%v (@ 100 QPS)\n", len(create.lat), create.errs, cp50, cp99)
 	if redir.errs > 0 || create.errs > 0 {
 		t.Errorf("errors: redirect=%d create=%d", redir.errs, create.errs)
 	}
-	if rp99 > 10*time.Millisecond {
-		t.Errorf("redirect p99 %v > 10ms", rp99)
+	if sp99 > 10*time.Millisecond {
+		t.Errorf("redirect p99 inside the service %v > 10ms", sp99)
 	}
 }
-
