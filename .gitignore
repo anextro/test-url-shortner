@@ -2,6 +2,3 @@
 node_modules/
 client/dist/
 *.log
-docs/
-PROJECT.md
-CLAUDE.md
