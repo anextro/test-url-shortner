@@ -5,16 +5,27 @@ Create permanent short links with a code you choose. Opening a short link redire
 - **Service** (`service/`): Go HTTP API backed by Postgres, with an in-memory cache for redirects.
 - **Client** (`client/`): React web app for creating links.
 
-## Run it locally
+## Quick start
 
-Requires Docker.
+Requires Docker. From the repository root, run:
 
 ```bash
-make up      # starts Postgres, the service (:8080) and the web client (:3000)
-make down    # stops everything and removes the data
+docker compose up --build
 ```
 
-Open http://localhost:3000 to use the web client.
+This starts everything:
+
+- API: http://localhost:8080
+- Web client: http://localhost:3000
+- Postgres: localhost:5432
+
+Press `Ctrl+C` to stop. To stop and delete the stored links:
+
+```bash
+docker compose down -v
+```
+
+Shortcuts: `make up` starts it in the background, `make down` stops it.
 
 ## API
 
