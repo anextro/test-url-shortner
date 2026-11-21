@@ -43,6 +43,36 @@ docker compose down -v
 
 Shortcuts: `make up` starts it in the background, `make down` stops it.
 
+## Example: create a link and use it
+
+1. Open http://localhost:3000.
+2. Enter a URL, e.g. `https://example.com`, and a code, e.g. `mylink1`.
+3. Click the button. The app shows `t/mylink1`.
+4. To use the link locally, open:
+
+   ```
+   http://localhost:8080/mylink1
+   ```
+
+   You are redirected to `https://example.com`.
+
+**Why not `t/mylink1` directly?** `t/` is the short domain the service is designed for. On your machine nothing maps `t` to the service yet, so use `http://localhost:8080/<code>` instead.
+
+The same flow from the terminal:
+
+```bash
+# Create the link
+curl -X POST http://localhost:8080/links \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com","code":"mylink1"}'
+# -> {"shortUrl":"t/mylink1"}
+
+# Use it (prints the redirect)
+curl -i http://localhost:8080/mylink1
+# -> HTTP/1.1 301 Moved Permanently
+# -> Location: https://example.com
+```
+
 ## API
 
 Base URL: `http://localhost:8080`
