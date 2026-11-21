@@ -7,13 +7,29 @@ Create permanent short links with a code you choose. Opening a short link redire
 
 ## Quick start
 
-Requires Docker. From the repository root, run:
+You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) (running) and Git.
 
-```bash
-docker compose up --build
-```
+1. Get the code:
 
-This starts everything:
+   ```bash
+   git clone https://github.com/anextro/test-url-shortner.git
+   ```
+
+2. Go into the folder:
+
+   ```bash
+   cd test-url-shortner
+   ```
+
+3. Start everything (the first run takes a few minutes):
+
+   ```bash
+   docker compose up --build
+   ```
+
+4. Open http://localhost:3000 and create a link.
+
+This starts:
 
 - API: http://localhost:8080
 - Web client: http://localhost:3000
