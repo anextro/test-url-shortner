@@ -36,7 +36,7 @@ describe('ShortenForm', () => {
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
-    user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    user = userEvent.setup({ delay: null });
     render(<App />);
   });
   afterEach(() => vi.useRealTimers());
