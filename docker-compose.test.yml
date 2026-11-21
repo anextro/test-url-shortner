@@ -1,0 +1,107 @@
+# Test stack: every test runs in Docker, nothing else needs to be installed.
+# Used by the Makefile: `make test`, `make test-service`, `make test-client`, `make test-e2e`.
+name: urlshortener-test
+
+x-node: &node
+  image: mcr.microsoft.com/playwright:v1.63.0-noble   # Node 22 + Chromium
+
+services:
+  testdb:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: links
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d links"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+
+  # Service: acceptance 1-18, concurrency, load, fuzz.
+  service-tests:
+    image: golang:1.24
+    working_dir: /src
+    volumes:
+      - ./service:/src
+      - go-mod-cache:/go/pkg/mod
+    environment:
+      TEST_DATABASE_URL: postgres://test:test@testdb:5432/links?sslmode=disable
+    command: >
+      bash -o pipefail -c "go vet ./... &&
+      go test -count=1 -p 1 -v ./... | grep -Ev '^=== (RUN|PAUSE|CONT)'"
+    depends_on:
+      testdb:
+        condition: service_healthy
+
+  # Client: tests 19-21 and UI checks against a mock API.
+  client-tests:
+    <<: *node
+    working_dir: /app
+    volumes:
+      - ./client:/app
+      - client-node-modules:/app/node_modules
+    command: bash -c "npm ci --no-audit --no-fund && npx vitest run"
+
+  # ---- End-to-end: real browser -> web client -> service -> Postgres ----
+  app-service:
+    profiles: [e2e]
+    image: golang:1.24
+    working_dir: /src
+    volumes:
+      - ./service:/src
+      - go-mod-cache:/go/pkg/mod
+    environment:
+      DATABASE_URL: postgres://test:test@testdb:5432/links?sslmode=disable
+      ALLOWED_ORIGIN: http://web:3000
+    command: go run .
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8080/healthcheck"]
+      interval: 2s
+      timeout: 2s
+      retries: 90
+    depends_on:
+      testdb:
+        condition: service_healthy
+
+  web:
+    profiles: [e2e]
+    <<: *node
+    working_dir: /app
+    volumes:
+      - ./client:/app
+      - client-node-modules:/app/node_modules
+    environment:
+      VITE_API_URL: http://app-service:8080
+      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: web
+    command: >
+      bash -c "npm ci --no-audit --no-fund && npx vite build &&
+      npx vite preview --host 0.0.0.0 --port 3000 --strictPort"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 2s
+      timeout: 3s
+      retries: 90
+    depends_on:
+      app-service:
+        condition: service_healthy
+
+  e2e:
+    profiles: [e2e]
+    <<: *node
+    working_dir: /e2e
+    volumes:
+      - ./e2e:/e2e
+      - e2e-node-modules:/e2e/node_modules
+    environment:
+      CLIENT_URL: http://web:3000
+      SERVICE_URL: http://app-service:8080
+    command: bash -c "npm ci --no-audit --no-fund && node e2e.test.js"
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  go-mod-cache:
+  client-node-modules:
+  e2e-node-modules:

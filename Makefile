@@ -1,4 +1,7 @@
-.PHONY: up down test test-service test-client test-e2e
+.PHONY: up down test test-service test-client test-e2e test-clean
+
+# Every test runs in Docker: only Docker is needed.
+TEST = docker compose -f docker-compose.test.yml
 
 up:
 	docker compose up -d --build --wait
@@ -7,13 +10,16 @@ down:
 	docker compose down -v
 
 test-service:
-	$(MAKE) -C service test
+	$(TEST) run --rm service-tests; s=$$?; $(TEST) down; exit $$s
 
 test-client:
-	$(MAKE) -C client test
+	$(TEST) run --rm client-tests; s=$$?; $(TEST) down; exit $$s
 
 test-e2e:
-	$(MAKE) up
-	node e2e/e2e.test.js; status=$$?; $(MAKE) down; exit $$status
+	$(TEST) --profile e2e run --rm e2e; s=$$?; $(TEST) --profile e2e down; exit $$s
 
 test: test-service test-client test-e2e
+
+# Also removes the cached dependencies (Go modules, node_modules volumes).
+test-clean:
+	$(TEST) --profile e2e down -v

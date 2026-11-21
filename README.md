@@ -162,11 +162,21 @@ curl -i http://localhost:8080/abc123
 
 ## Tests
 
+All tests run in Docker, so Docker is the only thing you need. From the repository root:
+
 ```bash
-make test-service   # API tests, concurrency, load (needs Docker)
-make test-client    # web client tests against a mock API
-make test           # everything, including an end-to-end browser test
+make test
 ```
+
+That runs three suites in order. You can also run each one on its own:
+
+```bash
+make test-service   # API acceptance tests, concurrency, load, fuzz (with a throwaway Postgres)
+make test-client    # web client tests against a mock API
+make test-e2e       # real browser -> web client -> service -> Postgres -> redirect
+```
+
+The first run downloads dependencies and takes a few minutes; later runs reuse them. `make test-clean` removes the cached dependencies.
 
 ## Configuration (service)
 
@@ -174,3 +184,4 @@ make test           # everything, including an end-to-end browser test
 |----------|---------|---------|
 | `DATABASE_URL` | — | Postgres connection string (required) |
 | `PORT` | `8080` | Port to listen on |
+| `ALLOWED_ORIGIN` | `http://localhost:3000` | Web client origin allowed by CORS |

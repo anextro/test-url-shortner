@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-const allowedOrigin = "http://localhost:3000"
+// allowedOrigin is the web client origin allowed by CORS; override with ALLOWED_ORIGIN.
+var allowedOrigin = "http://localhost:3000"
 
 type Server struct {
 	store   Store

@@ -15,6 +15,9 @@ func main() {
 	if dsn == "" {
 		log.Fatal("DATABASE_URL is required")
 	}
+	if o := os.Getenv("ALLOWED_ORIGIN"); o != "" {
+		allowedOrigin = o
+	}
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
