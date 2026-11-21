@@ -73,6 +73,12 @@ curl -i http://localhost:8080/mylink1
 # -> Location: https://example.com
 ```
 
+Or run the whole check in one go (needs the stack running):
+
+```bash
+./scripts/smoke-test.sh
+```
+
 ## API
 
 Base URL: `http://localhost:8080`
